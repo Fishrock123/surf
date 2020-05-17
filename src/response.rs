@@ -227,6 +227,12 @@ impl Response {
     }
 }
 
+impl AsRef<http_client::Response> for Response {
+    fn as_ref(&self) -> &http_client::Response {
+        &self.response
+    }
+}
+
 impl AsyncRead for Response {
     #[allow(missing_doc_code_examples)]
     fn poll_read(
