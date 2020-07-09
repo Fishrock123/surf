@@ -5,19 +5,17 @@
 //! ```no_run
 //! # #[async_std::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
-//! let mut res = surf::get("https://httpbin.org/redirect/2")
-//!     .middleware(surf::middleware::Redirect::default())
-//!     .await?;
+//! let req = surf::get("https://httpbin.org/redirect/2");
+//! let client = surf::client().middleware(surf::middleware::Redirect::new(5));
+//! let mut res = client.send(req).await?;
 //! dbg!(res.body_string().await?);
 //! # Ok(()) }
 //! ```
 
-use std::sync::Arc;
-
 use crate::http::{headers, StatusCode};
-use crate::middleware::{HttpClient, Middleware, Next, Request, Response};
+use crate::middleware::{Middleware, Next, Request, Response};
 use crate::url::Url;
-use crate::Result;
+use crate::{Client, Result};
 
 use futures::future::BoxFuture;
 
@@ -65,9 +63,9 @@ impl Redirect {
     /// ```no_run
     /// # #[async_std::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
-    /// let mut res = surf::get("https://httpbin.org/redirect/2")
-    ///     .middleware(surf::middleware::Redirect::new(5))
-    ///     .await?;
+    /// let req = surf::get("https://httpbin.org/redirect/2");
+    /// let client = surf::client().middleware(surf::middleware::Redirect::new(5));
+    /// let mut res = client.send(req).await?;
     /// dbg!(res.body_string().await?);
     /// # Ok(()) }
     /// ```
@@ -81,7 +79,7 @@ impl Middleware for Redirect {
     fn handle<'a>(
         &'a self,
         mut req: Request,
-        client: Arc<dyn HttpClient>,
+        client: Client,
         next: Next<'a>,
     ) -> BoxFuture<'a, Result<Response>> {
         Box::pin(async move {
@@ -107,7 +105,7 @@ impl Middleware for Redirect {
                 let res: Response = client.send(r).await?;
                 if REDIRECT_CODES.contains(&res.status()) {
                     if let Some(location) = res.header(headers::LOCATION) {
-                        *req.url_mut() = Url::parse(location.last().as_str())?;
+                        *req.as_mut().url_mut() = Url::parse(location.last().as_str())?;
                     }
                 } else {
                     break;

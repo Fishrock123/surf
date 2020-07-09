@@ -1,10 +1,9 @@
-use crate::middleware::{Middleware, Next, Request, Response};
-use http_client::HttpClient;
+use crate::middleware::{Middleware, Next};
+use crate::{Client, Request, Response};
 
 use futures::future::BoxFuture;
 use std::fmt::Arguments;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 use std::time;
 
 static COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -27,7 +26,7 @@ impl Middleware for Logger {
     fn handle<'a>(
         &'a self,
         req: Request,
-        client: Arc<dyn HttpClient>,
+        client: Client,
         next: Next<'a>,
     ) -> BoxFuture<'a, Result<Response, http_types::Error>> {
         Box::pin(async move {

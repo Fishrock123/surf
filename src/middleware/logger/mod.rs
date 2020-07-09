@@ -21,9 +21,10 @@ use native::Logger;
 /// ```no_run
 /// # #[async_std::main]
 /// # async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
-/// let mut res = surf::get("https://httpbin.org/get")
+/// let req = surf::get("https://httpbin.org/get");
+/// let mut res = surf::client()
 ///     .middleware(surf::middleware::logger::new())
-///     .await?;
+///     .send(req).await?;
 /// dbg!(res.body_string().await?);
 /// # Ok(()) }
 /// ```

@@ -1,6 +1,6 @@
 use futures::future::BoxFuture;
-use std::sync::Arc;
-use surf::middleware::{HttpClient, Middleware, Next, Request, Response};
+use surf::middleware::{Middleware, Next};
+use surf::{Client, Request, Response};
 
 struct Printer;
 
@@ -8,7 +8,7 @@ impl Middleware for Printer {
     fn handle<'a>(
         &'a self,
         req: Request,
-        client: Arc<dyn HttpClient>,
+        client: Client,
         next: Next<'a>,
     ) -> BoxFuture<'a, Result<Response, http_types::Error>> {
         Box::pin(async move {
@@ -24,8 +24,7 @@ impl Middleware for Printer {
 async fn main() -> Result<(), http_types::Error> {
     femme::start(log::LevelFilter::Info)?;
 
-    surf::get("https://httpbin.org/get")
-        .middleware(Printer {})
-        .await?;
+    let req = surf::get("https://httpbin.org/get");
+    surf::client().middleware(Printer {}).send(req).await?;
     Ok(())
 }
