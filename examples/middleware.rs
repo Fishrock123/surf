@@ -24,7 +24,8 @@ impl Middleware for Printer {
 async fn main() -> Result<(), http_types::Error> {
     femme::start(log::LevelFilter::Info)?;
 
-    let req = surf::get("https://httpbin.org/get");
-    surf::client().middleware(Printer {}).send(req).await?;
+    surf::get("https://httpbin.org/get")
+        .middleware(Printer {})
+        .await?;
     Ok(())
 }

@@ -101,6 +101,13 @@ impl Client {
         self
     }
 
+    #[allow(missing_doc_code_examples)]
+    pub(crate) fn insert_middleware(&mut self, middleware: Arc<dyn Middleware>) {
+        let m = Arc::get_mut(&mut self.middleware)
+            .expect("Registering middleware is not possible after the Client has been used");
+        m.push(middleware);
+    }
+
     /// Send a Request using this client.
     ///
     /// # Examples
@@ -132,7 +139,7 @@ impl Client {
         })
     }
 
-    /// Submit the request and get the response body as bytes.
+    /// Submit a request and get the response body as bytes.
     ///
     /// # Examples
     ///
@@ -149,7 +156,7 @@ impl Client {
         Ok(res.body_bytes().await?)
     }
 
-    /// Submit the request and get the response body as a string.
+    /// Submit a request and get the response body as a string.
     ///
     /// # Examples
     ///
@@ -166,7 +173,7 @@ impl Client {
         Ok(res.body_string().await?)
     }
 
-    /// Submit the request and decode the response body from json into a struct.
+    /// Submit a request and decode the response body from json into a struct.
     ///
     /// # Examples
     ///
@@ -192,7 +199,7 @@ impl Client {
         Ok(res.body_json::<T>().await?)
     }
 
-    /// Submit the request and decode the response body from form encoding into a struct.
+    /// Submit a request and decode the response body from form encoding into a struct.
     ///
     /// # Errors
     ///

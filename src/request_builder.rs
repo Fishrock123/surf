@@ -2,6 +2,7 @@ use crate::http::{
     headers::{HeaderName, ToHeaderValues},
     Body, Method, Mime,
 };
+use crate::middleware::Middleware;
 use crate::{Client, Request, Response, Result};
 
 use futures::future::BoxFuture;
@@ -10,6 +11,7 @@ use url::Url;
 use std::fmt;
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::{Context, Poll};
 
 // #[derive(Debug)]
@@ -57,6 +59,8 @@ pub struct RequestBuilder {
     req: Option<Request>,
     /// Holds the state of the `impl Future`.
     fut: Option<BoxFuture<'static, Result<Response>>>,
+    /// Holds an optional middleware stack.
+    middleware: Option<Vec<Arc<dyn Middleware>>>,
 }
 
 impl RequestBuilder {
@@ -83,6 +87,7 @@ impl RequestBuilder {
         Self {
             req: Some(Request::new(method, url)),
             fut: None,
+            middleware: None,
         }
     }
 
@@ -122,6 +127,32 @@ impl RequestBuilder {
     /// ```
     pub fn body(mut self, body: impl Into<Body>) -> Self {
         self.req.as_mut().unwrap().set_body(body);
+        self
+    }
+
+    /// Push middleware onto a middleware stack for use with
+    /// [surf::RequestBuilder::send()](surf::RequestBuilder::send()).
+    ///
+    /// See the [middleware] submodule for more information on middleware.
+    ///
+    /// [middleware]: ../middleware/index.html
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # #[async_std::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+    /// let res = surf::get("https://httpbin.org/get")
+    ///     .middleware(surf::middleware::Redirect::default())
+    ///     .await?;
+    /// # Ok(()) }
+    /// ```
+    pub fn middleware(mut self, middleware: impl Middleware) -> Self {
+        if self.middleware.is_none() {
+            self.middleware = Some(vec![]);
+        }
+
+        self.middleware.as_mut().unwrap().push(Arc::new(middleware));
         self
     }
 
@@ -216,8 +247,13 @@ impl RequestBuilder {
     }
 
     /// Create a `Client` and send the constructed `Request` from it.
-    pub fn send(self) -> BoxFuture<'static, Result<Response>> {
-        let client = Client::new();
+    pub fn send(mut self) -> BoxFuture<'static, Result<Response>> {
+        let mut client = Client::new();
+        if let Some(mw_vec) = self.middleware.take() {
+            for middleware in mw_vec {
+                client.insert_middleware(middleware);
+            }
+        }
         client.send(self.build())
     }
 }
