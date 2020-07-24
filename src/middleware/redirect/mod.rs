@@ -5,9 +5,9 @@
 //! ```no_run
 //! # #[async_std::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
-//! let req = surf::get("https://httpbin.org/redirect/2");
-//! let client = surf::client().middleware(surf::middleware::Redirect::new(5));
-//! let mut res = client.send(req).await?;
+//! let mut res = surf::get("https://httpbin.org/redirect/2")
+//!     .middleware(surf::middleware::Redirect::new(5))
+//!     .await?;
 //! dbg!(res.body_string().await?);
 //! # Ok(()) }
 //! ```

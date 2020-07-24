@@ -101,14 +101,9 @@ impl Client {
         self
     }
 
-    #[allow(missing_doc_code_examples)]
-    pub(crate) fn insert_middleware(&mut self, middleware: Arc<dyn Middleware>) {
-        let m = Arc::get_mut(&mut self.middleware)
-            .expect("Registering middleware is not possible after the Client has been used");
-        m.push(middleware);
-    }
-
     /// Send a Request using this client.
+    ///
+    /// Client middleware is run before per-request middleware.
     ///
     /// # Examples
     ///
@@ -121,13 +116,22 @@ impl Client {
     /// # Ok(()) }
     /// ```
     pub fn send(&self, req: impl Into<Request>) -> BoxFuture<'static, Result<Response>> {
-        let req: Request = req.into();
+        let mut req = req.into();
         let Self {
             http_client,
             middleware,
         } = self.clone();
+        let mw_stack = match req.take_middleware() {
+            Some(req_mw) => {
+                let mut mw = Vec::with_capacity(middleware.len() + req_mw.len());
+                mw.extend(middleware.iter().cloned());
+                mw.extend(req_mw);
+                Arc::new(mw)
+            }
+            None => middleware,
+        };
         Box::pin(async move {
-            let next = Next::new(&middleware, &|req, client| {
+            let next = Next::new(&mw_stack, &|req, client| {
                 Box::pin(async move {
                     let req: http_types::Request = req.into();
                     client.http_client.send(req).await.map(Into::into)

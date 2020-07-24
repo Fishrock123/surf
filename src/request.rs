@@ -3,6 +3,7 @@ use crate::http::{
     headers::{self, HeaderName, HeaderValues, ToHeaderValues},
     Body, Error, Method, Mime,
 };
+use crate::middleware::Middleware;
 use crate::RequestBuilder;
 
 use serde::Serialize;
@@ -12,12 +13,15 @@ use std::fmt;
 use std::io;
 use std::ops::Index;
 use std::path::Path;
+use std::sync::Arc;
 
 /// An HTTP request, returns a `Response`.
 #[derive(Clone)]
 pub struct Request {
     /// Holds the state of the request.
     req: http_client::Request,
+    /// Holds an optional per-request middleware stack.
+    middleware: Option<Vec<Arc<dyn Middleware>>>,
 }
 
 #[cfg(any(feature = "native-client", feature = "h1-client"))]
@@ -43,7 +47,10 @@ impl Request {
     /// ```
     pub fn new(method: Method, url: Url) -> Self {
         let req = http_client::Request::new(method, url);
-        Self { req }
+        Self {
+            req,
+            middleware: None,
+        }
     }
 
     /// Begin a chained request builder. For more details, see [RequestBuilder](crate::RequestBuilder)
@@ -380,6 +387,36 @@ impl Request {
     pub fn body_form(&mut self, form: &impl Serialize) -> crate::Result<()> {
         self.set_body(Body::from_form(form)?);
         Ok(())
+    }
+
+    /// Push middleware onto a per-request middleware stack.
+    ///
+    /// Client middleware is run before per-request middleware.
+    ///
+    /// See the [middleware] submodule for more information on middleware.
+    ///
+    /// [middleware]: ../middleware/index.html
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # #[async_std::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+    /// let res = surf::get("https://httpbin.org/get")
+    ///     .middleware(surf::middleware::Redirect::default())
+    ///     .await?;
+    /// # Ok(()) }
+    /// ```
+    pub fn middleware(&mut self, middleware: impl Middleware) {
+        if self.middleware.is_none() {
+            self.middleware = Some(vec![]);
+        }
+
+        self.middleware.as_mut().unwrap().push(Arc::new(middleware));
+    }
+
+    pub(crate) fn take_middleware(&mut self) -> Option<Vec<Arc<dyn Middleware>>> {
+        self.middleware.take()
     }
 }
 
